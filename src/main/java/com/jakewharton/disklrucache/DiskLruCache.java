@@ -846,6 +846,19 @@ public final class DiskLruCache implements Closeable {
       }
     }
 
+    public File getFile(int index) {
+      synchronized (DiskLruCache.this) {
+        if (entry.currentEditor != this) {
+          throw new IllegalStateException();
+        }
+        if (!entry.readable) {
+          return null;
+        }
+        final File file = entry.getCleanFile(index);
+        return file.exists() ? file : null;
+      }
+    }
+
     private class FaultHidingOutputStream extends FilterOutputStream {
       private FaultHidingOutputStream(OutputStream out) {
         super(out);
