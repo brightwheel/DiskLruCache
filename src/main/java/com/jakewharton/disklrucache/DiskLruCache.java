@@ -424,9 +424,11 @@ public final class DiskLruCache implements Closeable {
     // snapshot. If we opened streams lazily then the streams could come
     // from different edits.
     InputStream[] ins = new InputStream[valueCount];
+    File[] files = new File[valueCount];
     try {
       for (int i = 0; i < valueCount; i++) {
-        ins[i] = new FileInputStream(entry.getCleanFile(i));
+        files[i] = entry.getCleanFile(i);
+        ins[i] = new FileInputStream(files[i]);
       }
     } catch (FileNotFoundException e) {
       // A file must have been deleted manually!
@@ -446,7 +448,7 @@ public final class DiskLruCache implements Closeable {
       executorService.submit(cleanupCallable);
     }
 
-    return new Snapshot(key, entry.sequenceNumber, ins, entry.lengths);
+    return new Snapshot(key, entry.sequenceNumber, ins, files, entry.lengths);
   }
 
   /**
@@ -679,12 +681,19 @@ public final class DiskLruCache implements Closeable {
     private final long sequenceNumber;
     private final InputStream[] ins;
     private final long[] lengths;
+    private final File[] files;
 
-    private Snapshot(String key, long sequenceNumber, InputStream[] ins, long[] lengths) {
+    private Snapshot(String key, long sequenceNumber, InputStream[] ins, File[] files,
+                     long[] lengths) {
       this.key = key;
       this.sequenceNumber = sequenceNumber;
       this.ins = ins;
       this.lengths = lengths;
+      this.files = files;
+    }
+
+    public File getFile(int index) {
+      return files[index];
     }
 
     /**
@@ -843,19 +852,6 @@ public final class DiskLruCache implements Closeable {
           abort();
         } catch (IOException ignored) {
         }
-      }
-    }
-
-    public File getFile(int index) {
-      synchronized (DiskLruCache.this) {
-        if (entry.currentEditor != this) {
-          throw new IllegalStateException();
-        }
-        if (!entry.readable) {
-          return null;
-        }
-        final File file = entry.getCleanFile(index);
-        return file.exists() ? file : null;
       }
     }
 
